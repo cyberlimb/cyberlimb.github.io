@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>CyberLimb: Evaluating Vision-Language-Action Models in Robotic Manipulation</title>
+  <meta name="description" content="A real-world Master's thesis comparing the OpenVLA-7B vision-language-action model against a deterministic control system on a WidowX 250 robot arm, measuring accuracy, repeatability, cycle time, and setup complexity.">
+  <meta name="keywords" content="CyberLimb, Robotics, VLA, Vision-Language-Action, OpenVLA, WidowX, ROS 2, Jetson, Masters Thesis, Jake Kemple, Robot Manipulation">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta property="og:title" content="CyberLimb: Evaluating Vision-Language-Action Models in Robotic Manipulation">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="CyberLimb: Jake Kemple Master's Thesis">
+  <meta property="og:image" content="https://cyberlimb.github.io/static/images/page/hero-arm.jpg" />
+  <meta property="og:image:type" content="image/jpeg" />
+  <meta property="og:image:width" content="1821" />
+  <meta property="og:image:height" content="1920" />
+  <meta property="og:url" content="https://cyberlimb.github.io/" />
+  <meta property="og:description" content="A real-world thesis comparing the OpenVLA-7B vision-language-action model against a deterministic control system on a WidowX 250 robot arm." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="CyberLimb: Evaluating Vision-Language-Action Models in Robotic Manipulation" />
+  <meta name="twitter:description" content="OpenVLA-7B versus deterministic control on a real WidowX 250 arm: accuracy, repeatability, cycle time, and the cost of deployment." />
+  <meta name="twitter:image" content="https://cyberlimb.github.io/static/images/page/hero-arm.jpg" />
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+  <link rel="icon" href="./static/images/icon.png">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="./static/js/fontawesome.all.min.js"></script>
+  <script src="./static/js/bulma-carousel.min.js"></script>
+  <script src="./static/js/bulma-slider.min.js"></script>
+  <script src="./static/js/index.js"></script>
+
+  <style>
+    :root {
+      --det: #1f7a8c;        /* deterministic system accent */
+      --vla: #c06a2e;        /* VLA system accent */
+      --ink: #2c3e50;
+      --rule: #e6e8ec;
+      --muted: #6b7480;
+    }
+    body { color: #36404a; }
+    [id] { scroll-margin-top: 58px; }   /* keep titles clear of the sticky nav on anchor jumps */
+    .section { padding-top: 2.4rem; padding-bottom: 2.4rem; }
+    .title.is-3 { color: var(--ink); border-bottom: 1px solid var(--rule); padding-bottom: .5rem; margin-bottom: 1.3rem; }
+    .title.is-4 { color: var(--ink); }
+    .content p, .content li { color: #3d4753; }
+
+    /* Sticky nav */
+    .cl-nav { position: sticky; top: 0; z-index: 30; background: rgba(255,255,255,.95); border-bottom: 1px solid var(--rule); }
+    .cl-nav .inner { max-width: 1000px; margin: 0 auto; display: flex; align-items: center; justify-content: center; gap: 1.35rem; padding: .65rem 1rem; flex-wrap: wrap; }
+    .cl-nav a { color: #5a6470; font-weight: 600; font-size: .9rem; }
+    .cl-nav a:hover { color: var(--det); }
+    .cl-nav .brand { font-weight: 800; color: var(--ink); letter-spacing: .02em; }
+
+    .thesis-line { color: var(--det); font-style: italic; }
+
+    /* Key-results strip (flat, quiet) */
+    .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; margin: 1.4rem 0 1rem; }
+    .stat-item { padding: 1rem .8rem; text-align: center; border-right: 1px solid var(--rule); }
+    .stat-item:last-child { border-right: none; }
+    .stat-item .metric { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: #8a94a0; font-weight: 700; margin-bottom: .45rem; }
+    .stat-item .vals { font-size: 1.02rem; font-weight: 700; }
+    .stat-item .d { color: var(--det); } .stat-item .v { color: var(--vla); }
+    .stat-item .sub { font-size: .72rem; color: #9aa3ad; margin-top: .35rem; font-weight: 400; }
+    @media (max-width: 768px) { .stat-row { grid-template-columns: repeat(2, 1fr); } .stat-item:nth-child(2){border-right:none;} .stat-item:nth-child(1),.stat-item:nth-child(2){border-bottom:1px solid var(--rule);} }
+
+    /* Spec grid (used where a list would otherwise be long) */
+    .spec-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .8rem; margin: 1rem 0; }
+    .spec-card { border: 1px solid var(--rule); border-radius: 8px; padding: .9rem 1rem; background: #fff; }
+    .spec-card .k { font-weight: 700; color: var(--ink); font-size: .95rem; }
+    .spec-card .v { color: var(--muted); font-size: .86rem; margin-top: .25rem; line-height:1.45; }
+    .spec-card .ic { color: var(--det); font-size: 1rem; margin-bottom: .3rem; }
+    @media (max-width: 768px) { .spec-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    /* Subtle note */
+    .note { border-left: 3px solid var(--rule); background: #f8f9fa; border-radius: 0 6px 6px 0; padding: .9rem 1.1rem; margin: 1.2rem 0; color: #3d4753; }
+    .note .lbl { font-weight: 700; color: var(--ink); }
+
+    /* Plain comparison cards */
+    .approach { border: 1px solid var(--rule); border-radius: 8px; padding: 1.05rem 1.15rem; height: 100%; background:#fff; }
+    .approach .status { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #9aa3ad; }
+    .approach h4 { font-weight: 700; color: var(--ink); margin: .25rem 0 .5rem; }
+    .approach p, .approach li { color: var(--muted); font-size: .9rem; }
+    .approach ul { list-style: disc; padding-left: 1.15rem; margin-top: .6rem; }
+    .approach ul li { margin-bottom: .35rem; }
+
+    /* System labels in comparisons */
+    .sys-tag { display:inline-block; font-weight:700; letter-spacing:.02em; padding:.2rem .7rem; border-radius:6px; font-size:.86rem; }
+    .sys-tag.det { background: #eef4f5; color: var(--det); }
+    .sys-tag.vla { background: #f6efe8; color: var(--vla); }
+    .speed-note { font-size:.78rem; color:#9aa3ad; font-style:italic; }
+
+    /* Results table */
+    .compare-table { width:100%; border-collapse: collapse; margin: 1rem 0 .4rem; font-size:.96rem; }
+    .compare-table th, .compare-table td { padding: .65rem .9rem; border-bottom: 1px solid var(--rule); text-align: center; }
+    .compare-table th { background:#f7f9fa; color: var(--ink); font-weight:700; }
+    .compare-table td:first-child, .compare-table th:first-child { text-align: left; font-weight:600; color:#55606b; }
+    .compare-table .det-col { color: var(--det); font-weight: 700; }
+    .compare-table .vla-col { color: var(--vla); font-weight: 700; }
+
+    .figcap { text-align:center; color:#8a94a0; font-size:.85rem; font-style: italic; margin-top:.5rem; }
+    .roundimg { border-radius: 10px; box-shadow: 0 2px 12px rgba(20,30,40,.08); }
+    .obs li { margin-bottom: .6rem; }
+    .hyp { border:1px solid var(--rule); border-radius:8px; padding:.95rem 1.1rem; background:#fff; height:100%; }
+    .hyp .res { font-weight:700; font-size:.76rem; text-transform:uppercase; letter-spacing:.04em; }
+    .hyp .no { color:#b03a2e; } .hyp .partial { color:#b9770e; } .hyp .yes { color:#2e7d4f; }
+    .hyp p { color: var(--muted); font-size:.9rem; }
+  </style>
+</head>
+
+<body>
+
+  <!-- ===================== NAV ===================== -->
+  <nav class="cl-nav">
+    <div class="inner">
+      <a class="brand" href="#top">CyberLimb</a>
+      <a href="#overview">Overview</a>
+      <a href="#background">Background</a>
+      <a href="#system">System</a>
+      <a href="#experiment">Experiment</a>
+      <a href="#results">Results</a>
+      <a href="#complexity">Complexity</a>
+      <a href="#conclusion">Conclusion</a>
+      <a href="https://github.com/jakekemple/CyberLimb" target="_blank">Code&nbsp;<i class="fab fa-github"></i></a>
+    </div>
+  </nav>
+
+  <!-- ===================== HERO ===================== -->
+  <section class="hero" id="top">
+    <div class="hero-body">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column has-text-centered">
+            <h1 class="title is-1 publication-title"><span style="font-size:2.15rem;">Evaluating Vision-Language-Action Models in <span style="white-space:nowrap;">Robotic Manipulation</span></span></h1>
+            <h2 class="subtitle is-4" style="color:var(--muted); margin-top:-.3rem;">Performance, Implementation, and Comparison with Deterministic Systems</h2>
+
+            <div class="is-size-5 publication-authors" style="margin-top:1rem;">
+              <span class="author-block"><a href="#about">Jake Kemple</a></span>
+            </div>
+            <div class="is-size-6 publication-authors" style="margin-top:.45rem; color:#666;">
+              <span class="author-block">Committee: <a href="https://faculty.washington.edu/minchen2/" target="_blank">Min Chen</a> (Chair), Clark Olson, Yang Peng</span>
+            </div>
+            <div class="is-size-6" style="margin-top:.55rem;">
+              <span class="thesis-line">Master's Thesis</span>
+            </div>
+            <div class="is-size-6" style="color:#777;">
+              M.S. in Computer Science &amp; Software Engineering, University of Washington, 2025
+            </div>
+
+            <div class="column has-text-centered">
+              <div class="publication-links">
+                <span class="link-block">
+                  <a target="_blank" href="https://drive.google.com/file/d/15EkBcMYAEKk2mtwHfVwkD7fEKKC4VoIb/view?usp=sharing"
+                    class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon"><i class="fas fa-file-pdf"></i></span>
+                    <span>Thesis&nbsp;Paper</span>
+                  </a>
+                </span>
+                <span class="link-block">
+                  <a target="_blank" href="https://github.com/jakekemple/CyberLimb"
+                    class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon"><i class="fab fa-github"></i></span>
+                    <span>Code</span>
+                  </a>
+                </span>
+                <span class="link-block">
+                  <a target="_blank" href="https://docs.google.com/presentation/d/1ueZkYw0638_mXNqgWYmY4bsO7ufsI6I4i-9ZU_T4mS0/edit?usp=sharing"
+                    class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon"><i class="fas fa-desktop"></i></span>
+                    <span>Defense&nbsp;Slides</span>
+                  </a>
+                </span>
+                <span class="link-block">
+                  <a target="_blank" href="https://digital.lib.washington.edu/researchworks/items/9ea676ab-f431-4c21-bc80-a1ac280b84f4"
+                    class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon"><i class="fas fa-university"></i></span>
+                    <span>UW&nbsp;ResearchWorks</span>
+                  </a>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== HERO VIDEO ===================== -->
+  <section class="hero teaser">
+    <div class="container is-max-desktop has-text-centered">
+      <div class="hero-body">
+        <video autoplay muted loop playsinline poster="static/images/page/hero-arm.jpg" class="roundimg" style="width:100%; max-width:960px;">
+          <source src="static/videos/web/hero-compilation.mp4" type="video/mp4">
+        </video>
+        <p class="figcap">Zero-shot OpenVLA-7B completing the pick-and-place task on the WidowX 250 across several trials.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== OVERVIEW ===================== -->
+  <section class="section" id="overview" style="padding-top:1.4rem;">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column is-full-width">
+          <div class="content has-text-justified">
+            <p>
+              Robotic manipulation systems typically rely on deterministic policies for perception, decision-making, and task
+              planning. These reach millimeter-level precision but require extensive specialized development and do not generalize
+              easily to new tasks. Vision-Language-Action (VLA) foundation models promise to reduce that effort through learned
+              multimodal reasoning, but their real-world practicality and development cost remain largely unknown.
+            </p>
+            <p>
+              This thesis presents a real-world comparison of a strong open-source VLA model, OpenVLA-7B, against a tuned
+              deterministic control system. Both run on identical hardware (a WidowX 250 arm, an Intel RealSense D415 camera, and
+              an NVIDIA Jetson AGX Orin under ROS 2) and repeatedly execute a pick-and-place task under randomized conditions.
+              Performance is measured with object-centric metrics of accuracy, repeatability, and cycle time adapted from ISO 9283,
+              alongside a comparison of the setup effort each system required.
+            </p>
+          </div>
+
+          <div class="stat-row">
+            <div class="stat-item">
+              <div class="metric">Placement Accuracy</div>
+              <div class="vals"><span class="d">3.24</span> vs <span class="v">54.4</span> mm</div>
+              <div class="sub">error to target</div>
+            </div>
+            <div class="stat-item">
+              <div class="metric">Cycle Time</div>
+              <div class="vals"><span class="d">14.1</span> vs <span class="v">64.2</span> s</div>
+              <div class="sub">mean per trial</div>
+            </div>
+            <div class="stat-item">
+              <div class="metric">Repeatability Radius</div>
+              <div class="vals"><span class="d">13.5</span> vs <span class="v">95.3</span> mm</div>
+              <div class="sub">99% inclusion</div>
+            </div>
+            <div class="stat-item">
+              <div class="metric">Task Success</div>
+              <div class="vals"><span class="d">10/10</span> vs <span class="v">9/10</span></div>
+              <div class="sub">completed trials</div>
+            </div>
+          </div>
+          <p class="speed-note has-text-centered" style="margin-bottom:1.6rem;">Deterministic system shown in teal, OpenVLA-7B system in amber.</p>
+
+          <h3 class="title is-5" style="color:var(--ink);">Contributions</h3>
+          <div class="content">
+            <ol>
+              <li>An empirical comparison of performance and setup complexity between a VLA-based control policy and conventional deterministic control logic.</li>
+              <li>Documentation of the hardware, software, and configuration challenges encountered while implementing the VLA system on real hardware.</li>
+              <li>Qualitative insights from real-world deployment, with practical guidance for engineers considering VLA-based control.</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== BACKGROUND ===================== -->
+  <section class="section" id="background" style="background:#fafbfc;">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column is-full-width">
+          <h2 class="title is-3">Vision-Language-Action Models</h2>
+          <div class="columns is-vcentered">
+            <div class="column is-5 has-text-centered">
+              <img src="static/images/page/vla-explainer.png" style="max-width:320px; width:100%;" alt="Progression from neural networks to LLMs to VLMs to VLAs" />
+            </div>
+            <div class="column is-7">
+              <div class="content has-text-justified">
+                <p>
+                  A VLA model extends the lineage of modern neural networks. Large Language Models added attention over text,
+                  Vision-Language Models added image input, and VLA models replace the text output with robot action deltas,
+                  mapping a camera image and a language instruction directly to motion.
+                </p>
+                <p>
+                  This research uses OpenVLA-7B, an open-source VLA. It combines a fused DINOv2 and SigLIP visual encoder with a
+                  Llama-2 7B language backbone, and decodes seven action tokens per step: position (&Delta;x, &Delta;y, &Delta;z),
+                  rotation (&Delta;roll, &Delta;pitch, &Delta;yaw), and a gripper state. It was pretrained on the BridgeData V2
+                  dataset, which includes the WidowX 250 arm used here, making zero-shot deployment feasible without fine-tuning.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="content has-text-centered" style="margin-top:.8rem;">
+            <img src="static/images/openvla_model.jpg" class="roundimg" style="max-width:740px; width:100%;" alt="OpenVLA model architecture" />
+            <p class="figcap">OpenVLA architecture: a fused visual encoder and a Llama-2 backbone predict tokenized actions that decode into continuous robot commands. Figure from the <a href="https://openvla.github.io/" target="_blank">OpenVLA</a> paper.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SYSTEM DESIGN ===================== -->
+  <section class="section" id="system">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column is-full-width">
+          <h2 class="title is-3">System Design</h2>
+          <div class="content has-text-justified">
+            <p>
+              Both systems share one hardware platform and the same low-level Interbotix arm control. They differ only in the
+              high-level policy that decides where the arm moves. The deterministic pipeline reads depth point clouds and runs
+              scripted Cartesian moves; the VLA pipeline passes RGB frames and a prompt to OpenVLA and converts its predicted
+              action deltas into motion.
+            </p>
+          </div>
+          <div class="content has-text-centered">
+            <img src="static/images/page/arch-overall.png" class="roundimg" style="max-width:860px; width:100%;" alt="Overall system architecture across three policy implementations" />
+            <p class="figcap">The full architecture. Three interchangeable control policies drive the same WidowX arm through shared Interbotix control.</p>
+          </div>
+
+          <h3 class="title is-4" style="margin-top:1.8rem;">Hardware &amp; Software</h3>
+          <div class="spec-grid">
+            <div class="spec-card">
+              <div class="ic"><i class="fas fa-robot"></i></div>
+              <div class="k">WidowX 250</div>
+              <div class="v">6-DoF Interbotix X-Series arm. Included in the BridgeData V2 training set, enabling zero-shot use.</div>
+            </div>
+            <div class="spec-card">
+              <div class="ic"><i class="fas fa-camera"></i></div>
+              <div class="k">Intel RealSense D415</div>
+              <div class="v">RGB-D camera. RGB feeds the VLA; depth point clouds feed the deterministic pipeline.</div>
+            </div>
+            <div class="spec-card">
+              <div class="ic"><i class="fas fa-microchip"></i></div>
+              <div class="k">Jetson AGX Orin 64GB</div>
+              <div class="v">On-board edge inference for the 7B model, with a 1TB NVMe SSD for model weights and caches.</div>
+            </div>
+            <div class="spec-card">
+              <div class="ic"><i class="fas fa-project-diagram"></i></div>
+              <div class="k">ROS 2 Humble</div>
+              <div class="v">Publish-subscribe middleware connecting perception, inference, and arm control on JetPack 6.2.</div>
+            </div>
+            <div class="spec-card">
+              <div class="ic"><i class="fas fa-brain"></i></div>
+              <div class="k">OpenVLA-7B</div>
+              <div class="v">The vision-language-action policy, run zero-shot from the HuggingFace checkpoint.</div>
+            </div>
+            <div class="spec-card">
+              <div class="ic"><i class="fas fa-cogs"></i></div>
+              <div class="k">Interbotix Stack</div>
+              <div class="v">Shared SDK for inverse kinematics, trajectory generation, perception, and servo control.</div>
+            </div>
+          </div>
+          <div class="content has-text-centered" style="margin-top:.8rem;">
+            <img src="static/images/page/workspace.jpg" class="roundimg" style="max-width:600px; width:100%;" alt="The workspace: WidowX arm, RealSense camera on a stand, and 1mm graph paper" />
+            <p class="figcap">The workspace: arm, camera on an adjustable stand, and the 1 mm graph paper used to measure placement by hand.</p>
+          </div>
+
+          <h3 class="title is-4" style="margin-top:1.8rem;">Control Policies</h3>
+          <div class="content has-text-justified">
+            <p>Reaching a working VLA system took two attempts, which is itself a finding.</p>
+          </div>
+          <div class="columns">
+            <div class="column is-4">
+              <div class="approach">
+                <div class="status">Baseline</div>
+                <h4>Deterministic pipeline</h4>
+                <p>Color segmentation and point-cloud clustering localize the block, AR-tag calibration maps camera to robot, and a scripted state machine grasps and places it.</p>
+              </div>
+            </div>
+            <div class="column is-4">
+              <div class="approach">
+                <div class="status">Initial attempt</div>
+                <h4>Custom VLA nodes</h4>
+                <p>Three custom ROS 2 nodes fed OpenVLA's deltas directly to the Interbotix SDK. The loop ran end to end but produced no meaningful task progress, showing OpenVLA is not plug-and-play.</p>
+              </div>
+            </div>
+            <div class="column is-4">
+              <div class="approach">
+                <div class="status">Used for evaluation</div>
+                <h4>bridge&#95;data&#95;robot</h4>
+                <p>Adapting and ROS 2-patching the official Bridge V2 evaluation stack supplied the missing control layer (action scaling, workspace bounds, fixed initial pose), after which the model performed the task.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="note">
+            <span class="lbl">A central implementation finding:</span> the model is only one component of the system. OpenVLA's raw
+            action deltas were not usable until a control layer handled action rescaling, per-step clipping (&plusmn;5 cm and
+            &plusmn;0.25 rad), a downward-pitched initial pose, and inference-loop timing. The robotics integration around the model
+            mattered as much as the model itself.
+          </div>
+
+          <div class="columns is-vcentered" style="margin-top:.8rem;">
+            <div class="column is-6 has-text-centered">
+              <img src="static/images/page/arch-bridge-vla.png" style="width:100%; border:1px solid var(--rule); border-radius:6px;" alt="bridge_data_robot VLA pipeline with pre- and post-processing layers" />
+              <p class="figcap">The working VLA pipeline, with pre- and post-processing wrapping the model.</p>
+            </div>
+            <div class="column is-6 has-text-centered">
+              <img src="static/images/page/arch-deterministic.png" style="width:100%; border:1px solid var(--rule); border-radius:6px;" alt="Deterministic control logic flow" />
+              <p class="figcap">The deterministic policy: a short, explicit script (localize, grasp, place).</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== EXPERIMENT ===================== -->
+  <section class="section" id="experiment" style="background:#fafbfc;">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column is-full-width">
+          <h2 class="title is-3">Experiment Setup and Trials</h2>
+          <div class="columns is-vcentered">
+            <div class="column is-7">
+              <div class="content has-text-justified">
+                <p>
+                  The task is a standard pick-and-place: lift a 1-inch wooden block and place it on a target dot. Each trial begins
+                  with the block at a random position and orientation within a 28 by 20 cm zone. The deterministic system receives
+                  fixed target coordinates; the VLA system receives an image and the prompt "Put block onto paper dot."
+                </p>
+                <p>
+                  Each system ran 10 trials across six block colors. Final placement was measured by hand on 1 mm graph paper,
+                  giving roughly 1 to 2 mm of measurement uncertainty. Because OpenVLA has no built-in notion of task completion,
+                  the VLA loop was capped at 80 steps.
+                </p>
+              </div>
+            </div>
+            <div class="column is-5 has-text-centered">
+              <img src="static/images/page/task-closeup.jpg" class="roundimg" style="max-width:290px; width:100%;" alt="WidowX gripper grasping a block over graph paper" />
+              <p class="figcap">The gripper closing on a block, AR tag used for calibration.</p>
+            </div>
+          </div>
+
+          <div class="content has-text-centered">
+            <img src="static/images/page/vla-rollout-strip.jpg" class="roundimg" style="max-width:800px; width:100%;" alt="Five-frame RealSense camera view of the VLA picking up and moving a block" />
+            <p class="figcap">A VLA rollout from the RealSense camera, the same camera framing as the BridgeData V2 training set.</p>
+          </div>
+
+          <h3 class="title is-4" style="margin-top:1.6rem;">Metrics</h3>
+          <div class="content has-text-justified">
+            <p>
+              The systems are scored with object-centric metrics adapted from ISO 9283, which evaluate where the block ends up
+              rather than where the robot's wrist goes:
+            </p>
+            <ul>
+              <li><strong>Accuracy:</strong> distance from the average final block position to the intended target.</li>
+              <li><strong>Repeatability:</strong> spread of final positions across trials, reported as axis standard deviation and a 99% inclusion radius.</li>
+              <li><strong>Cycle time:</strong> ROS 2-timestamped seconds from the first command to completed placement.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== RESULTS ===================== -->
+  <section class="section" id="results">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column is-full-width">
+          <h2 class="title is-3">Results and Analysis</h2>
+          <div class="content has-text-justified">
+            <p>
+              Across every quantitative metric the deterministic system outperformed the VLA system, often by a wide margin. The
+              VLA system completed 9 of 10 tasks but was far less accurate, less repeatable, and several times slower.
+            </p>
+          </div>
+
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                <th>Deterministic</th>
+                <th>VLA (OpenVLA-7B)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Task success</td><td class="det-col">10 / 10</td><td class="vla-col">9 / 10</td></tr>
+              <tr><td>Accuracy, error to target (mm)</td><td class="det-col">3.24</td><td class="vla-col">54.37</td></tr>
+              <tr><td>Repeatability radius, 99% (mm)</td><td class="det-col">13.48</td><td class="vla-col">95.27</td></tr>
+              <tr><td>Axis repeatability &sigma;<sub>x</sub>, &sigma;<sub>y</sub> (mm)</td><td class="det-col">0.42, 4.47</td><td class="vla-col">16.14, 27.35</td></tr>
+              <tr><td>Bias vector (mm)</td><td class="det-col">(1.2, &minus;3.0)</td><td class="vla-col">(&minus;45.1, 30.3)</td></tr>
+              <tr><td>Mean cycle time (s)</td><td class="det-col">14.09</td><td class="vla-col">64.22</td></tr>
+            </tbody>
+          </table>
+          <p class="speed-note">Aggregated over 10 trials per system. Positions measured by hand on 1 mm graph paper (1 to 2 mm uncertainty).</p>
+
+          <h3 class="title is-4" style="margin-top:2rem;">Trial Comparisons</h3>
+          <div class="content has-text-justified">
+            <p>The same task under each policy. Deterministic clips play in real time; VLA clips are sped up 5 times.</p>
+          </div>
+
+          <div class="columns is-vcentered interpolation-panel">
+            <div class="column has-text-centered">
+              <span class="sys-tag det">Deterministic</span><br>
+              <span class="speed-note">Green block, real time</span>
+              <video autoplay muted loop playsinline style="width:100%; border-radius:8px; margin-top:.5rem;">
+                <source src="static/videos/web/det_green_1x.mp4" type="video/mp4">
+              </video>
+            </div>
+            <div class="column has-text-centered">
+              <span class="sys-tag vla">OpenVLA-7B</span><br>
+              <span class="speed-note">Green block, sped up 5x</span>
+              <video autoplay muted loop playsinline style="width:100%; border-radius:8px; margin-top:.5rem;">
+                <source src="static/videos/web/vla_green_5x.mp4" type="video/mp4">
+              </video>
+            </div>
+          </div>
+
+          <div class="columns is-vcentered interpolation-panel">
+            <div class="column has-text-centered">
+              <span class="sys-tag det">Deterministic</span><br>
+              <span class="speed-note">Yellow block, real time</span>
+              <video autoplay muted loop playsinline style="width:100%; border-radius:8px; margin-top:.5rem;">
+                <source src="static/videos/web/det_yellow_1x.mp4" type="video/mp4">
+              </video>
+            </div>
+            <div class="column has-text-centered">
+              <span class="sys-tag vla">OpenVLA-7B</span><br>
+              <span class="speed-note">Yellow block, sped up 5x, with a re-grasp after a failed attempt</span>
+              <video autoplay muted loop playsinline style="width:100%; border-radius:8px; margin-top:.5rem;">
+                <source src="static/videos/web/vla_yellow_retry_5x.mp4" type="video/mp4">
+              </video>
+            </div>
+          </div>
+
+          <h3 class="title is-4" style="margin-top:2rem;">Representative Trials</h3>
+          <div class="columns">
+            <div class="column has-text-centered">
+              <span class="sys-tag det">Deterministic, success</span>
+              <img src="static/images/page/frames-deterministic.jpg" style="width:100%; max-width:250px; border-radius:6px; margin-top:.6rem;" alt="Frames from a successful deterministic trial" />
+              <p class="figcap">A direct pick-and-place.</p>
+            </div>
+            <div class="column has-text-centered">
+              <span class="sys-tag vla">VLA, recovery</span>
+              <img src="static/images/page/frames-vla-retry.jpg" style="width:100%; max-width:250px; border-radius:6px; margin-top:.6rem;" alt="Frames from a VLA trial with a retry" />
+              <p class="figcap">A failed grasp, then a retry (Trial 7).</p>
+            </div>
+            <div class="column has-text-centered">
+              <span class="sys-tag vla">VLA, failure</span>
+              <img src="static/images/page/frames-vla-failed.jpg" style="width:100%; max-width:250px; border-radius:6px; margin-top:.6rem;" alt="Frames from a failed VLA trial" />
+              <p class="figcap">The arm proceeds as if holding the block and never recovers (Trial 8).</p>
+            </div>
+          </div>
+
+          <h3 class="title is-4" style="margin-top:2rem;">VLA Rollouts (Camera View)</h3>
+          <div class="content has-text-justified">
+            <p>The RGB feed OpenVLA receives, across a sweep of zero-shot trials.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="hero is-light is-small">
+    <div class="hero-body">
+      <div class="container">
+        <div id="results-carousel" class="carousel results-carousel">
+          <div class="item has-text-centered"><video muted autoplay loop playsinline><source src="static/videos/web/roll_success_1.mp4" type="video/mp4"></video><p id="overlay">Successful place</p></div>
+          <div class="item has-text-centered"><video muted autoplay loop playsinline><source src="static/videos/web/roll_success_2.mp4" type="video/mp4"></video><p id="overlay">Successful place</p></div>
+          <div class="item has-text-centered"><video muted autoplay loop playsinline><source src="static/videos/web/roll_success_3.mp4" type="video/mp4"></video><p id="overlay">Successful place</p></div>
+          <div class="item has-text-centered"><video muted autoplay loop playsinline><source src="static/videos/web/roll_success_4.mp4" type="video/mp4"></video><p id="overlay">Successful place</p></div>
+          <div class="item has-text-centered"><video muted autoplay loop playsinline><source src="static/videos/web/roll_success_5.mp4" type="video/mp4"></video><p id="overlay">Successful place</p></div>
+          <div class="item has-text-centered"><video muted autoplay loop playsinline><source src="static/videos/web/roll_success_6.mp4" type="video/mp4"></video><p id="overlay">Successful place</p></div>
+          <div class="item has-text-centered"><video muted autoplay loop playsinline><source src="static/videos/web/roll_failure_1.mp4" type="video/mp4"></video><p id="overlay">A failed first pickup</p></div>
+        </div>
+        <p class="has-text-centered" style="margin-top:1rem;">Zero-shot OpenVLA-7B rollouts on the WidowX 250, captured from the RealSense D415.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== QUALITATIVE ===================== -->
+  <section class="section" style="padding-top:2rem;">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column is-full-width">
+          <h3 class="title is-4">Qualitative Observations</h3>
+          <div class="content has-text-justified">
+            <ul class="obs">
+              <li><strong>Prompt sensitivity.</strong> Wording changed behavior substantially. "Put block onto paper dot" succeeded most often, while "Pick up block and place on center of white paper" produced hesitation, poor grasps, or task misreads.</li>
+              <li><strong>Recovery.</strong> The VLA sometimes detected a failed grasp and retried, eventually succeeding. This was inconsistent; in other trials it falsely assumed success and continued until the step limit.</li>
+              <li><strong>System-level fragility.</strong> Performance was sensitive to block color, calibration, the arm's starting pose, and inference timing. Several failures stemmed from the full stack, not the model alone.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SETUP & INSTALLATION COMPLEXITY ===================== -->
+  <section class="section" id="complexity" style="background:#fafbfc;">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column is-full-width">
+          <h2 class="title is-3">Setup and Installation Complexity</h2>
+          <div class="content has-text-justified">
+            <p>
+              Performance is one half of the comparison. The other is what each system required to run. The deterministic stack
+              shipped with documentation and demonstration scripts. The VLA stack was a research codebase that had to be adapted to
+              modern edge hardware.
+            </p>
+          </div>
+
+          <div class="columns">
+            <div class="column is-6">
+              <div class="approach">
+                <span class="sys-tag det">Deterministic setup</span>
+                <ul style="margin-top:.7rem;">
+                  <li>Organized vendor documentation and ready-made demo scripts.</li>
+                  <li>No GPU required; runs on modest compute.</li>
+                  <li>Predictable once calibrated.</li>
+                  <li>Cost: manual recalibration and rescripting for any change in task or layout.</li>
+                </ul>
+              </div>
+            </div>
+            <div class="column is-6">
+              <div class="approach">
+                <span class="sys-tag vla">VLA setup</span>
+                <ul style="margin-top:.7rem;">
+                  <li>No framework for the inference and action loop; built and tuned from scratch.</li>
+                  <li>The 7B model needs substantial GPU memory just for inference.</li>
+                  <li>Reference code was ROS 1 with Docker, neither viable on JetPack 6.</li>
+                  <li>No notion of task completion, requiring a manual step cap.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <h3 class="title is-4" style="margin-top:1.4rem;">Integration challenges</h3>
+          <div class="spec-grid">
+            <div class="spec-card"><div class="k">ROS 1 to ROS 2</div><div class="v">The bridge&#95;data&#95;robot reference stack assumed ROS 1 conventions; launch files and interfaces were rewritten.</div></div>
+            <div class="spec-card"><div class="k">ARM64 and JetPack 6</div><div class="v">Interbotix install scripts targeted AMD64 or Raspberry Pi, so the Orin needed a custom install path.</div></div>
+            <div class="spec-card"><div class="k">Docker and GPU</div><div class="v">GPU passthrough in Docker on JetPack 6 was unworkable, and VMs are unsupported by Interbotix, leaving a bare-metal install.</div></div>
+            <div class="spec-card"><div class="k">Inference latency</div><div class="v">A single un-quantized OpenVLA forward pass averages about 840 ms on the Orin, far from the 20 to 30 Hz of conventional control.</div></div>
+            <div class="spec-card"><div class="k">Calibration sensitivity</div><div class="v">Millimeter camera-arm miscalibration cascades into centimeter task error, so small bumps required full recalibration.</div></div>
+            <div class="spec-card"><div class="k">Dependency management</div><div class="v">Version conflicts across CUDA, PyTorch, Transformers, and ROS required careful version pinning.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CONCLUSION ===================== -->
+  <section class="section" id="conclusion">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column is-full-width">
+          <h2 class="title is-3">Conclusion</h2>
+          <div class="content has-text-justified">
+            <p>
+              Quantitatively, the deterministic system outperformed the VLA system in accuracy, repeatability, and execution speed.
+              Qualitatively, the VLA system showed advantages in adaptability and language-driven flexibility that the deterministic
+              system lacks.
+            </p>
+            <p>
+              For structured tasks that demand precise, consistent, and fast manipulation, deterministic control remains the better
+              choice, and the current cost of deploying a VLA generally outweighs its benefits. In dynamic or exploratory settings
+              where adaptability and natural-language interaction are valuable, VLA models show clear promise. Reaching
+              production-grade reliability will require further fine-tuning, better integration tooling, and continued model
+              improvements.
+            </p>
+          </div>
+
+          <h3 class="title is-4" style="margin-top:1.4rem;">Implications to Hypotheses</h3>
+          <div class="columns">
+            <div class="column">
+              <div class="hyp">
+                <div class="res no">Not supported</div>
+                <p style="font-weight:700; color:var(--ink); margin:.3rem 0;">H1: Comparable performance</p>
+                <p>The VLA system trailed deterministic control on accuracy, repeatability, and speed.</p>
+              </div>
+            </div>
+            <div class="column">
+              <div class="hyp">
+                <div class="res partial">Partially supported</div>
+                <p style="font-weight:700; color:var(--ink); margin:.3rem 0;">H2: Resilience and recovery</p>
+                <p>It recovered from some failures and adapted to prompts, but inconsistently, with new failure modes.</p>
+              </div>
+            </div>
+            <div class="column">
+              <div class="hyp">
+                <div class="res yes">Supported</div>
+                <p style="font-weight:700; color:var(--ink); margin:.3rem 0;">H3: Integration challenges</p>
+                <p>Latency, calibration sensitivity, GPU requirements, and ROS and hardware incompatibilities were all significant.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== INSIGHTS & FUTURE WORK ===================== -->
+  <section class="section" style="background:#fafbfc;">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column is-full-width">
+          <h2 class="title is-3">Insights and Recommendations</h2>
+          <div class="columns">
+            <div class="column is-6">
+              <h3 class="title is-5" style="color:var(--ink);">Recommendations</h3>
+              <div class="content">
+                <ul class="obs">
+                  <li>Budget for the integration layer, not just the model. Action scaling, workspace bounds, and a fixed initial pose were decisive for success.</li>
+                  <li>Treat prompts as configuration and keep a tested set, since small wording changes alter behavior.</li>
+                  <li>Tune the inference loop. Image capture, inference, and actuation rates must be coordinated.</li>
+                  <li>Plan for trial and error in calibration, timing, and hardware compatibility, and size compute for inference, not only training.</li>
+                </ul>
+              </div>
+            </div>
+            <div class="column is-6">
+              <h3 class="title is-5" style="color:var(--ink);">Future Work</h3>
+              <div class="content">
+                <ul class="obs">
+                  <li>Harder tasks: clutter, irregular objects, and multi-step or dynamic scenarios.</li>
+                  <li>Fine-tuning and newer models, including optimized variants such as <a href="https://arxiv.org/abs/2502.19645" target="_blank">OpenVLA-OFT</a>.</li>
+                  <li>Modular integration frameworks so VLA policies can be staged into existing robot stacks with less custom code.</li>
+                  <li>Better introspection (attention maps, confidence scores, embeddings) to debug system-level failures.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== ABOUT ===================== -->
+  <section class="section" id="about">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column is-full-width has-text-centered">
+          <h2 class="title is-3" style="border:none;">About the Author</h2>
+          <p class="is-size-5" style="font-weight:700; color:var(--ink);">Jake Kemple</p>
+          <p style="color:var(--muted);">M.S. in Computer Science &amp; Software Engineering, University of Washington, 2025</p>
+          <p style="margin-top:1rem;">
+            <a id="cl-email" class="button is-rounded is-dark" href="#"><span class="icon"><i class="fas fa-envelope"></i></span><span>Email</span></a>
+            <a class="button is-rounded is-dark" href="https://github.com/jakekemple" target="_blank"><span class="icon"><i class="fab fa-github"></i></span><span>GitHub</span></a>
+            <a class="button is-rounded is-dark" href="https://www.linkedin.com/in/jakekemple/" target="_blank"><span class="icon"><i class="fab fa-linkedin"></i></span><span>LinkedIn</span></a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== BIBTEX ===================== -->
+  <section class="section" id="BibTeX">
+    <div class="container is-max-desktop content">
+      <h2 class="title is-3">BibTeX</h2>
+      <pre><code>@mastersthesis{kemple2025vla,
+    author  = {Jake Kemple},
+    title   = {Evaluating Vision-Language-Action Models in Robotic Manipulation:
+               Performance, Implementation, and Comparison with Deterministic Systems},
+    school  = {University of Washington},
+    year    = {2025},
+    type    = {Master's thesis},
+    url     = {https://digital.lib.washington.edu/researchworks/items/9ea676ab-f431-4c21-bc80-a1ac280b84f4},
+}</code></pre>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="columns is-centered">
+        <div class="column is-8">
+          <div class="content has-text-centered">
+            <p>
+              <a href="https://github.com/jakekemple/CyberLimb" target="_blank">Companion code</a> &nbsp;&middot;&nbsp;
+              <a href="https://drive.google.com/file/d/15EkBcMYAEKk2mtwHfVwkD7fEKKC4VoIb/view?usp=sharing" target="_blank">Thesis PDF</a> &nbsp;&middot;&nbsp;
+              <a href="#top">Back to top</a>
+            </p>
+            <p style="font-size:.85rem; color:#9aa3ad;">
+              Website design adapted from the <a href="https://openvla.github.io/" target="_blank">OpenVLA</a> project page, based on
+              <a href="https://github.com/nerfies/nerfies.github.io" target="_blank">Nerfies</a>, under a
+              <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank">CC BY-SA 4.0</a> license.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Assemble the contact address at runtime so it is not a literal string in the page source.
+    (function () {
+      var u = "mail", d = "jakekemple.com";
+      var a = document.getElementById("cl-email");
+      if (a) { a.setAttribute("href", "mailto:" + u + String.fromCharCode(64) + d); }
+    })();
+  </script>
+
+</body>
+
+</html>

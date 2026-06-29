@@ -110,6 +110,15 @@
     .hyp .res { font-weight:700; font-size:.76rem; text-transform:uppercase; letter-spacing:.04em; }
     .hyp .no { color:#b03a2e; } .hyp .partial { color:#b9770e; } .hyp .yes { color:#2e7d4f; }
     .hyp p { color: var(--muted); font-size:.9rem; }
+
+    /* Click-to-zoom architecture diagrams */
+    .zoomable { cursor: zoom-in; transition: box-shadow .15s ease; }
+    .zoomable:hover { box-shadow: 0 2px 14px rgba(20,30,40,.18); }
+    .cl-lightbox { display: none; position: fixed; inset: 0; z-index: 100; background: rgba(20,25,30,.82); padding: 2.2rem 1.2rem; cursor: zoom-out; }
+    .cl-lightbox.is-open { display: flex; align-items: center; justify-content: center; }
+    .cl-lightbox img { max-width: 95vw; max-height: 90vh; width: auto; height: auto; border-radius: 8px; background: #fff; box-shadow: 0 8px 40px rgba(0,0,0,.5); cursor: default; }
+    .cl-lightbox .cl-close { position: absolute; top: .8rem; right: 1.2rem; color: #fff; font-size: 2.2rem; line-height: 1; background: none; border: none; cursor: pointer; opacity: .85; }
+    .cl-lightbox .cl-close:hover { opacity: 1; }
   </style>
 </head>
 
@@ -386,11 +395,11 @@
 
           <div class="columns is-vcentered" style="margin-top:.8rem;">
             <div class="column is-6 has-text-centered">
-              <img src="static/images/page/arch-bridge-vla.png" style="width:100%; border:1px solid var(--rule); border-radius:6px;" alt="bridge_data_robot VLA pipeline with pre- and post-processing layers" />
+              <img src="static/images/page/arch-bridge-vla.png" class="zoomable" style="width:100%; border:1px solid var(--rule); border-radius:6px;" alt="bridge_data_robot VLA pipeline with pre- and post-processing layers" />
               <p class="figcap">The working VLA pipeline, with pre- and post-processing wrapping the model.</p>
             </div>
             <div class="column is-6 has-text-centered">
-              <img src="static/images/page/arch-deterministic.png" style="width:100%; border:1px solid var(--rule); border-radius:6px;" alt="Deterministic control logic flow" />
+              <img src="static/images/page/arch-deterministic.png" class="zoomable" style="width:100%; border:1px solid var(--rule); border-radius:6px;" alt="Deterministic control logic flow" />
               <p class="figcap">The deterministic policy: a short, explicit script (localize, grasp, place).</p>
             </div>
           </div>
@@ -522,17 +531,17 @@
           <h3 class="title is-4" style="margin-top:2rem;">Representative Trials</h3>
           <div class="columns">
             <div class="column has-text-centered">
-              <span class="sys-tag det">Deterministic, success</span>
+              <span class="sys-tag det">Deterministic, success</span><br>
               <img src="static/images/page/frames-deterministic.jpg" style="width:100%; max-width:250px; border-radius:6px; margin-top:.6rem;" alt="Frames from a successful deterministic trial" />
               <p class="figcap">A direct pick-and-place.</p>
             </div>
             <div class="column has-text-centered">
-              <span class="sys-tag vla">VLA, recovery</span>
+              <span class="sys-tag vla">VLA, recovery</span><br>
               <img src="static/images/page/frames-vla-retry.jpg" style="width:100%; max-width:250px; border-radius:6px; margin-top:.6rem;" alt="Frames from a VLA trial with a retry" />
               <p class="figcap">A failed grasp, then a retry (Trial 7).</p>
             </div>
             <div class="column has-text-centered">
-              <span class="sys-tag vla">VLA, failure</span>
+              <span class="sys-tag vla">VLA, failure</span><br>
               <img src="static/images/page/frames-vla-failed.jpg" style="width:100%; max-width:250px; border-radius:6px; margin-top:.6rem;" alt="Frames from a failed VLA trial" />
               <p class="figcap">The arm proceeds as if holding the block and never recovers (Trial 8).</p>
             </div>
@@ -775,12 +784,44 @@
     </div>
   </footer>
 
+  <!-- ===================== IMAGE LIGHTBOX ===================== -->
+  <div id="cl-lightbox" class="cl-lightbox" aria-hidden="true">
+    <button class="cl-close" type="button" aria-label="Close">&times;</button>
+    <img src="" alt="">
+  </div>
+
   <script>
     // Assemble the contact address at runtime so it is not a literal string in the page source.
     (function () {
       var u = "mail", d = "jakekemple.com";
       var a = document.getElementById("cl-email");
       if (a) { a.setAttribute("href", "mailto:" + u + String.fromCharCode(64) + d); }
+    })();
+
+    // Click-to-zoom lightbox for architecture diagrams.
+    (function () {
+      var box = document.getElementById("cl-lightbox");
+      if (!box) return;
+      var img = box.querySelector("img");
+      function open(src, alt) {
+        img.setAttribute("src", src);
+        img.setAttribute("alt", alt || "");
+        box.classList.add("is-open");
+        box.setAttribute("aria-hidden", "false");
+      }
+      function close() {
+        box.classList.remove("is-open");
+        box.setAttribute("aria-hidden", "true");
+        img.setAttribute("src", "");
+      }
+      document.querySelectorAll(".zoomable").forEach(function (el) {
+        el.addEventListener("click", function () { open(el.getAttribute("src"), el.getAttribute("alt")); });
+      });
+      // A click anywhere except on the enlarged image (backdrop or close button) dismisses it.
+      box.addEventListener("click", function (e) { if (e.target !== img) close(); });
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && box.classList.contains("is-open")) close();
+      });
     })();
   </script>
 
